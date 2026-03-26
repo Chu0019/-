@@ -1,26 +1,63 @@
 import SwiftUI
+import Combine
+
+struct QuizQuestion: Identifiable {
+    let id: Int
+    let q: String
+    let shuffledOptions: [String]
+    let correctIndex: Int
+    let image: String?
+}
 
 class QuizViewModel: ObservableObject {
-    @Published var questions: [Question] = []
+    @Published var questions: [QuizQuestion] = []
     @Published var currentIndex = 0
     @Published var selectedAnswers: [Int?] = []
     @Published var showResults = false
     @Published var score = 0
     
     func startQuiz() {
-        // Pick 20 random questions
-        let shuffled = questionBank.shuffled()
-        self.questions = Array(shuffled.prefix(min(20, shuffled.count)))
+        // 從題庫隨機抽取 20 題
+        let rawQuestions = questionBank.shuffled().prefix(min(20, questionBank.count))
+        
+        self.questions = rawQuestions.map { q in
+            // 隨機打亂選項
+            let originalOptions = q.options.filter { !$0.isEmpty }
+            let indices = Array(0..<originalOptions.count).shuffled()
+            let shuffledOptions = indices.map { originalOptions[$0] }
+            
+            // 找出正確答案在打亂後的新位置
+            let correctIndex = indices.firstIndex(of: q.answer) ?? 0
+            
+            return QuizQuestion(
+                id: q.id,
+                q: q.q,
+                shuffledOptions: shuffledOptions,
+                correctIndex: correctIndex,
+                image: q.image
+            )
+        }
+        
         self.selectedAnswers = Array(repeating: nil, count: self.questions.count)
         self.currentIndex = 0
         self.showResults = false
         self.score = 0
     }
     
+    var sortedResultsIndices: [Int] {
+        questions.indices.sorted { i, j in
+            let isCorrectI = selectedAnswers[i] == questions[i].correctIndex
+            let isCorrectJ = selectedAnswers[j] == questions[j].correctIndex
+            if !isCorrectI && isCorrectJ { return true }
+            if isCorrectI && !isCorrectJ { return false }
+            return i < j
+        }
+    }
+    
     func submit() {
         var calculatedScore = 0
         for (index, q) in questions.enumerated() {
-            if selectedAnswers[index] == q.answer {
+            if selectedAnswers[index] == q.correctIndex {
                 calculatedScore += 1
             }
         }
@@ -35,7 +72,7 @@ struct ContentView: View {
     
     var body: some View {
         ZStack {
-            // Background Gradient
+            // 背景漸層
             LinearGradient(gradient: Gradient(colors: [Color(hex: "e0e7ff"), Color(hex: "f8fafc")]), 
                            startPoint: .topLeading, 
                            endPoint: .bottomTrailing)
@@ -61,6 +98,7 @@ struct ContentView: View {
                     .transition(.opacity)
             }
         }
+        .preferredColorScheme(.light)
     }
 }
 
@@ -80,9 +118,10 @@ struct StartView: View {
                 Text("桃園國際機場")
                     .font(.title2)
                     .fontWeight(.bold)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color(hex: "64748b"))
                 Text("空側駕駛許可證測驗")
                     .font(.system(size: 34, weight: .black))
+                    .foregroundStyle(Color(hex: "1e293b")) // 明確指定深色文字
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
             }
@@ -91,7 +130,7 @@ struct StartView: View {
             VStack(alignment: .leading, spacing: 15) {
                 InfoLabel(icon: "list.bullet.clipboard", text: "題庫：共 \(questionBank.count) 題")
                 InfoLabel(icon: "timer", text: "每次隨機抽取 20 題")
-                InfoLabel(icon: "checkmark.seal", text: "模擬真實測驗環境 (80分及格)")
+                InfoLabel(icon: "checkmark.seal", text: "模擬真實測驗環境 (80分及及格)")
             }
             .padding(25)
             .background(Color.white.opacity(0.6))
@@ -127,7 +166,7 @@ struct QuizView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header
+            // 頂部進度
             VStack(spacing: 12) {
                 HStack {
                     Text("題目 \(viewModel.currentIndex + 1) / \(viewModel.questions.count)")
@@ -151,9 +190,10 @@ struct QuizView: View {
                     let currentQ = viewModel.questions[viewModel.currentIndex]
                     
                     Text(currentQ.q)
-                        .font(.title3)
-                        .fontWeight(.bold)
-                        .lineSpacing(4)
+                        .font(.system(size: 21, weight: .bold))
+                        .foregroundStyle(Color(hex: "0f172a"))
+                        .lineSpacing(6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     
                     if let imageName = currentQ.image {
                         Image(imageName)
@@ -166,13 +206,13 @@ struct QuizView: View {
                     }
                     
                     VStack(spacing: 14) {
-                        ForEach(0..<currentQ.options.count, id: \.self) { index in
-                            let option = currentQ.options[index]
+                        ForEach(0..<currentQ.shuffledOptions.count, id: \.self) { index in
+                            let option = currentQ.shuffledOptions[index]
                             if !option.isEmpty {
                                 OptionButton(
                                     text: option,
                                     isSelected: viewModel.selectedAnswers[viewModel.currentIndex] == index,
-                                    action: { 
+                                    action: {
                                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                             viewModel.selectedAnswers[viewModel.currentIndex] = index
                                         }
@@ -185,10 +225,10 @@ struct QuizView: View {
                 .padding(20)
             }
             
-            // Footer
+            // 底部導航
             HStack(spacing: 15) {
                 if viewModel.currentIndex > 0 {
-                    Button(action: { 
+                    Button(action: {
                         withAnimation { viewModel.currentIndex -= 1 }
                     }) {
                         Image(systemName: "arrow.left")
@@ -214,8 +254,8 @@ struct QuizView: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
                         .background(
-                            viewModel.currentIndex < viewModel.questions.count - 1 ? 
-                            (viewModel.selectedAnswers[viewModel.currentIndex] != nil ? Color.indigo : Color.gray.opacity(0.5)) : 
+                            viewModel.currentIndex < viewModel.questions.count - 1 ?
+                            (viewModel.selectedAnswers[viewModel.currentIndex] != nil ? Color.indigo : Color.gray.opacity(0.5)) :
                             Color.green
                         )
                         .cornerRadius(16)
@@ -241,6 +281,7 @@ struct ResultsView: View {
                         Text("測驗成績")
                             .font(.title2)
                             .fontWeight(.bold)
+                            .foregroundStyle(Color(hex: "0f172a"))
                         
                         ZStack {
                             Circle()
@@ -256,9 +297,10 @@ struct ResultsView: View {
                             VStack(spacing: -5) {
                                 Text("\(viewModel.score * 5)")
                                     .font(.system(size: 48, weight: .black))
+                                    .foregroundStyle(Color(hex: "0f172a"))
                                 Text("分")
                                     .font(.headline)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(Color(hex: "64748b"))
                             }
                         }
                         
@@ -280,56 +322,15 @@ struct ResultsView: View {
                         Text("答題詳情")
                             .font(.title3)
                             .fontWeight(.bold)
+                            .foregroundStyle(Color(hex: "1e293b"))
                             .padding(.horizontal)
                         
-                        ForEach(0..<viewModel.questions.count, id: \.self) { index in
+                        ForEach(viewModel.sortedResultsIndices, id: \.self) { index in
                             let q = viewModel.questions[index]
                             let selected = viewModel.selectedAnswers[index]
-                            let isCorrect = selected == q.answer
+                            let isCorrect = selected == q.correctIndex
                             
-                            VStack(alignment: .leading, spacing: 12) {
-                                HStack(alignment: .top, spacing: 12) {
-                                    Text("\(index + 1)")
-                                        .font(.caption.bold())
-                                        .foregroundStyle(.white)
-                                        .frame(width: 24, height: 24)
-                                        .background(isCorrect ? Color.green : Color.red)
-                                        .clipShape(Circle())
-                                    
-                                    Text(q.q)
-                                        .font(.subheadline)
-                                        .fontWeight(.medium)
-                                    
-                                    Spacer()
-                                    
-                                    Image(systemName: isCorrect ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                        .foregroundStyle(isCorrect ? .green : .red)
-                                }
-                                
-                                if !isCorrect {
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        HStack {
-                                            Text("您的回答：")
-                                                .font(.caption.bold())
-                                            Text(selected != nil ? q.options[selected!] : "未作答")
-                                                .font(.caption)
-                                        }
-                                        .foregroundStyle(.red)
-                                        
-                                        HStack {
-                                            Text("正確答案：")
-                                                .font(.caption.bold())
-                                            Text(q.options[q.answer])
-                                                .font(.caption)
-                                        }
-                                        .foregroundStyle(.green)
-                                    }
-                                    .padding(.leading, 36)
-                                }
-                            }
-                            .padding()
-                            .background(Color.white.opacity(0.6))
-                            .cornerRadius(16)
+                            ResultRow(index: index, question: q, selected: selected, isCorrect: isCorrect)
                         }
                     }
                     .padding(.horizontal)
@@ -337,23 +338,44 @@ struct ResultsView: View {
                 .padding(.bottom, 30)
             }
             
-            Button(action: onReset) {
-                Text("返回主畫面")
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(Color.indigo)
-                    .cornerRadius(16)
-                    .shadow(color: .indigo.opacity(0.3), radius: 10, x: 0, y: 5)
+            VStack(spacing: 12) {
+                Button(action: {
+                    withAnimation {
+                        viewModel.startQuiz()
+                    }
+                }) {
+                    Text("重新考題")
+                        .font(.headline)
+                        .foregroundStyle(.indigo)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 56)
+                        .background(Color.white)
+                        .cornerRadius(16)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color.indigo, lineWidth: 2)
+                        )
+                }
+                
+                Button(action: onReset) {
+                    Text("返回主畫面")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 56)
+                        .background(Color.indigo)
+                        .cornerRadius(16)
+                        .shadow(color: .indigo.opacity(0.3), radius: 10, x: 0, y: 5)
+                }
             }
             .padding()
             .background(Color.white.opacity(0.8))
+
         }
     }
 }
 
-// Reusable Components
+// 元件區
 struct InfoLabel: View {
     var icon: String
     var text: String
@@ -366,7 +388,7 @@ struct InfoLabel: View {
             Text(text)
                 .font(.subheadline)
                 .fontWeight(.medium)
-                .foregroundStyle(.primary.opacity(0.8))
+                .foregroundStyle(Color(hex: "334155")) // 深灰色文字
         }
     }
 }
@@ -381,11 +403,10 @@ struct OptionButton: View {
             HStack(spacing: 15) {
                 Text(text)
                     .multilineTextAlignment(.leading)
-                    .font(.body)
-                    .fontWeight(isSelected ? .bold : .regular)
-                    .foregroundStyle(isSelected ? .indigo : .primary)
-                
-                Spacer()
+                    .font(.system(size: 17, weight: isSelected ? .bold : .regular))
+                    .foregroundStyle(isSelected ? .indigo : Color(hex: "334155"))
+                    .fixedSize(horizontal: false, vertical: true) // 確保文字超出時往下排
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 
                 ZStack {
                     Circle()
@@ -433,4 +454,58 @@ extension Color {
 
 #Preview {
     ContentView()
+}
+
+struct ResultRow: View {
+    let index: Int
+    let question: QuizQuestion
+    let selected: Int?
+    let isCorrect: Bool
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                Text("\(index + 1)")
+                    .font(.caption.bold())
+                    .foregroundStyle(.white)
+                    .frame(width: 24, height: 24)
+                    .background(isCorrect ? Color.green : Color.red)
+                    .clipShape(Circle())
+                
+                Text(question.q)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(Color(hex: "0f172a"))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                Spacer()
+                
+                Image(systemName: isCorrect ? "checkmark.circle.fill" : "xmark.circle.fill")
+                    .foregroundStyle(isCorrect ? .green : .red)
+            }
+            
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .top) {
+                    Text("您的回答：")
+                        .font(.system(size: 14, weight: .bold))
+                    Text(selected != nil ? question.shuffledOptions[selected!] : "未作答")
+                        .font(.system(size: 14))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .foregroundStyle(isCorrect ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.red))
+                
+                HStack(alignment: .top) {
+                    Text("正確答案：")
+                        .font(.system(size: 14, weight: .bold))
+                    Text(question.shuffledOptions[question.correctIndex])
+                        .font(.system(size: 14))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .foregroundStyle(.green)
+            }
+            .padding(.leading, 36)
+        }
+        .padding()
+        .background(Color.white.opacity(0.6))
+        .cornerRadius(16)
+    }
 }
