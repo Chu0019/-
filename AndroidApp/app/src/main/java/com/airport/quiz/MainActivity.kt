@@ -76,9 +76,9 @@ fun AppContent(viewModel: QuizViewModel = viewModel()) {
             PasswordView(onAuthenticated = { isAuthenticated = true })
         } else {
             AnimatedContent(
-                targetState = Triple(viewModel.isStarted, viewModel.showResults, viewModel.currentIndex),
+                targetState = Pair(viewModel.isStarted, viewModel.showResults),
                 label = "quiz_navigation"
-            ) { (started, showResults, _) ->
+            ) { (started, showResults) ->
                 if (!started) {
                     StartView { viewModel.startQuiz() }
                 } else if (showResults) {
@@ -421,15 +421,17 @@ fun QuizView(viewModel: QuizViewModel) {
 
 @Composable
 fun OptionButton(text: String, isSelected: Boolean, onClick: () -> Unit) {
-    val bgColor by animateColorAsState(if (isSelected) primaryIndigo.copy(alpha = 0.08f) else Color.White, label = "bg")
+    val bgColor by animateColorAsState(if (isSelected) Color(0xFFEEF2FF) else Color.White, label = "bg")
     val borderColor by animateColorAsState(if (isSelected) primaryIndigo else Color.Transparent, label = "border")
     
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(2.dp, borderColor),
-        colors = CardDefaults.cardColors(containerColor = bgColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 0.dp else 2.dp),
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(if (isSelected) 0.dp else 2.dp, RoundedCornerShape(16.dp))
+            .background(bgColor, RoundedCornerShape(16.dp))
+            .border(2.dp, borderColor, RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
     ) {
         Row(
             modifier = Modifier.padding(18.dp),
