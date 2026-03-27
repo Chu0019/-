@@ -425,12 +425,11 @@ fun OptionButton(text: String, isSelected: Boolean, onClick: () -> Unit) {
     val borderColor by animateColorAsState(if (isSelected) primaryIndigo else Color.Transparent, label = "border")
     
     Card(
-        onClick = onClick,
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(2.dp, borderColor),
         colors = CardDefaults.cardColors(containerColor = bgColor),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 0.dp else 2.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
     ) {
         Row(
             modifier = Modifier.padding(18.dp),
@@ -607,7 +606,7 @@ fun ResultsView(viewModel: QuizViewModel, onReset: () -> Unit) {
                             )
                         }
                         
-                        Column(modifier = Modifier.padding(left = 40.dp)) {
+                        Column(modifier = Modifier.padding(start = 40.dp)) {
                             Row(modifier = Modifier.padding(bottom = 6.dp)) {
                                 Text("您的回答：", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (isCorrect) slate500 else Color(0xFFEF4444))
                                 Text(selected?.let { q.shuffledOptions[it] } ?: "未作答", fontSize = 14.sp, color = if (isCorrect) slate500 else Color(0xFFEF4444))
