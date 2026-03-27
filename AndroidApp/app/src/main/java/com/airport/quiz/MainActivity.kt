@@ -321,45 +321,60 @@ fun QuizView(viewModel: QuizViewModel) {
         }
         
         // 考題內容
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(20.dp)
-        ) {
-            Text(
-                text = currentQ.q,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = slate900,
-                lineHeight = 32.sp,
-                modifier = Modifier.padding(bottom = 24.dp)
-            )
-            
-            if (currentQ.image != null) {
-                val context = LocalContext.current
-                val imageResId = context.resources.getIdentifier(currentQ.image, "drawable", context.packageName)
-                if (imageResId != 0) {
-                    Image(
-                        painter = painterResource(id = imageResId),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .padding(bottom = 24.dp),
-                        contentScale = ContentScale.Fit
+        Box(modifier = Modifier.weight(1f)) {
+            AnimatedContent(
+                targetState = viewModel.currentIndex,
+                transitionSpec = {
+                    if (targetState > initialState) {
+                        (slideInHorizontally { it } + fadeIn()).togetherWith(slideOutHorizontally { -it } + fadeOut())
+                    } else {
+                        (slideInHorizontally { -it } + fadeIn()).togetherWith(slideOutHorizontally { it } + fadeOut())
+                    }.using(SizeTransform(clip = false))
+                },
+                label = "question_transition"
+            ) { targetIndex ->
+                val q = viewModel.questions[targetIndex]
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(20.dp)
+                ) {
+                    Text(
+                        text = q.q,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = slate900,
+                        lineHeight = 32.sp,
+                        modifier = Modifier.padding(bottom = 24.dp)
                     )
-                }
-            }
-            
-            currentQ.shuffledOptions.forEachIndexed { index, option ->
-                if (option.isNotEmpty()) {
-                    OptionButton(
-                        text = option,
-                        isSelected = viewModel.selectedAnswers[viewModel.currentIndex] == index,
-                        onClick = { viewModel.setAnswer(index) }
-                    )
-                    Spacer(modifier = Modifier.height(14.dp))
+
+                    if (q.image != null) {
+                        val context = LocalContext.current
+                        val imageResId = context.resources.getIdentifier(q.image, "drawable", context.packageName)
+                        if (imageResId != 0) {
+                            Image(
+                                painter = painterResource(id = imageResId),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .padding(bottom = 24.dp),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
+                    }
+
+                    q.shuffledOptions.forEachIndexed { optIndex, option ->
+                        if (option.isNotEmpty()) {
+                            OptionButton(
+                                text = option,
+                                isSelected = viewModel.selectedAnswers[targetIndex] == optIndex,
+                                onClick = { viewModel.setAnswer(optIndex) }
+                            )
+                            Spacer(modifier = Modifier.height(14.dp))
+                        }
+                    }
                 }
             }
         }
