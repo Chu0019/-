@@ -55,22 +55,22 @@ class MainActivity : ComponentActivity() {
 fun AppContent(viewModel: QuizViewModel = viewModel()) {
     var isAuthenticated by remember { mutableStateOf(false) }
 
-    AnimatedContent(targetState = if (!isAuthenticated) "auth" else Triple(viewModel.isStarted, viewModel.showResults, viewModel.currentIndex)) { state ->
-        if (state == "auth") {
+    Crossfade(targetState = isAuthenticated) { auth ->
+        if (!auth) {
             PasswordView(onAuthenticated = { isAuthenticated = true })
         } else {
-            @Suppress("UNCHECKED_CAST")
-            val (started, showResults, index) = state as Triple<Boolean, Boolean, Int>
-            if (!started) {
-                StartView {
-                    viewModel.startQuiz()
+            AnimatedContent(targetState = Triple(viewModel.isStarted, viewModel.showResults, viewModel.currentIndex)) { (started, showResults, index) ->
+                if (!started) {
+                    StartView {
+                        viewModel.startQuiz()
+                    }
+                } else if (showResults) {
+                    ResultsView(viewModel = viewModel, onReset = {
+                        viewModel.isStarted = false
+                    })
+                } else {
+                    QuizView(viewModel = viewModel)
                 }
-            } else if (showResults) {
-                ResultsView(viewModel = viewModel, onReset = {
-                    viewModel.isStarted = false
-                })
-            } else {
-                QuizView(viewModel = viewModel)
             }
         }
     }
