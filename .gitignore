@@ -1,0 +1,28 @@
+# gitignore
+
+# Build artifacts
+.gradle/
+build/
+AndroidApp/build/
+AndroidApp/app/build/
+AndroidApp/**/build/
+captures/
+*.apk
+*.aar
+*.jks
+*.keystore
+*.class
+*.dex
+local.properties
+
+# Xcode
+*.xcuserstate
+xcuserdata/
+DerivedData/
+*.moved-aside
+
+# IDEs
+.idea/
+
+# OS files
+.DS_Store
