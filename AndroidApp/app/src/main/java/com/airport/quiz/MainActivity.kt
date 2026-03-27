@@ -163,6 +163,7 @@ fun PasswordView(onAuthenticated: () -> Unit) {
                             errorMessage = "密碼錯誤，請重新輸入"
                         }
                     } catch (e: Exception) {
+                        e.printStackTrace()
                         errorMessage = "無法連線驗證密碼，請檢查網路連線狀態"
                     } finally {
                         isLoading = false
