@@ -22,6 +22,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.net.URL
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.CircularProgressIndicator
 
 val primaryIndigo = Color(0xFF5C6BC0)
 val slate900 = Color(0xFF0F172A)
@@ -46,17 +53,25 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun AppContent(viewModel: QuizViewModel = viewModel()) {
-    AnimatedContent(targetState = Triple(viewModel.isStarted, viewModel.showResults, viewModel.currentIndex)) { (started, showResults, index) ->
-        if (!started) {
-            StartView {
-                viewModel.startQuiz()
-            }
-        } else if (showResults) {
-            ResultsView(viewModel = viewModel, onReset = {
-                viewModel.isStarted = false
-            })
+    var isAuthenticated by remember { mutableStateOf(false) }
+
+    AnimatedContent(targetState = if (!isAuthenticated) "auth" else Triple(viewModel.isStarted, viewModel.showResults, viewModel.currentIndex)) { state ->
+        if (state == "auth") {
+            PasswordView(onAuthenticated = { isAuthenticated = true })
         } else {
-            QuizView(viewModel = viewModel)
+            @Suppress("UNCHECKED_CAST")
+            val (started, showResults, index) = state as Triple<Boolean, Boolean, Int>
+            if (!started) {
+                StartView {
+                    viewModel.startQuiz()
+                }
+            } else if (showResults) {
+                ResultsView(viewModel = viewModel, onReset = {
+                    viewModel.isStarted = false
+                })
+            } else {
+                QuizView(viewModel = viewModel)
+            }
         }
     }
 }
@@ -88,6 +103,82 @@ fun StartView(onStart: () -> Unit) {
             modifier = Modifier.fillMaxWidth().height(56.dp)
         ) {
             Text("開始測驗", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+fun PasswordView(onAuthenticated: () -> Unit) {
+    var password by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            "桃園機場駕駛許可證測驗\n安全驗證",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = slate900,
+            modifier = Modifier.padding(bottom = 24.dp),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
+        
+        OutlinedTextField(
+            value = password,
+            onValueChange = { password = it; errorMessage = null },
+            label = { Text("請輸入進入密碼") },
+            visualTransformation = PasswordVisualTransformation(),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+        )
+        
+        if (errorMessage != null) {
+            Text(
+                text = errorMessage!!,
+                color = Color.Red,
+                fontSize = 14.sp,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+        }
+        
+        Button(
+            onClick = {
+                if (password.isBlank()) return@Button
+                isLoading = true
+                errorMessage = null
+                
+                scope.launch {
+                    try {
+                        val remotePassword = withContext(Dispatchers.IO) {
+                            URL("https://raw.githubusercontent.com/Chu0019/-/main/password.txt").readText().trim()
+                        }
+                        if (password == remotePassword) {
+                            onAuthenticated()
+                        } else {
+                            errorMessage = "密碼錯誤，請重新輸入"
+                        }
+                    } catch (e: Exception) {
+                        errorMessage = "無法連線驗證密碼，請檢查網路連線狀態"
+                    } finally {
+                        isLoading = false
+                    }
+                }
+            },
+            enabled = !isLoading && password.isNotBlank(),
+            colors = ButtonDefaults.buttonColors(containerColor = primaryIndigo),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth().height(56.dp)
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+            } else {
+                Text("登入", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }

@@ -66,9 +66,102 @@ class QuizViewModel: ObservableObject {
     }
 }
 
+struct PasswordView: View {
+    @Binding var isAuthenticated: Bool
+    @State private var password = ""
+    @State private var errorMessage: String? = nil
+    @State private var isLoading = false
+    
+    var body: some View {
+        VStack(spacing: 24) {
+            Image(systemName: "lock.shield.fill")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 80, height: 80)
+                .foregroundStyle(.indigo)
+                .shadow(radius: 5)
+            
+            Text("安全驗證")
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundStyle(Color(hex: "0f172a"))
+            
+            SecureField("請輸入進入密碼", text: $password)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .padding(.horizontal)
+                .disabled(isLoading)
+            
+            if let error = errorMessage {
+                Text(error)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+            }
+            
+            Button(action: verifyPassword) {
+                if isLoading {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .frame(maxWidth: .infinity)
+                } else {
+                    Text("登入")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .frame(height: 50)
+            .background(password.isEmpty ? Color.gray : Color.indigo)
+            .cornerRadius(12)
+            .padding(.horizontal)
+            .disabled(password.isEmpty || isLoading)
+        }
+        .padding(30)
+        .background(Color.white.opacity(0.9))
+        .cornerRadius(20)
+        .shadow(radius: 10)
+        .padding()
+    }
+    
+    private func verifyPassword() {
+        guard !password.isEmpty else { return }
+        isLoading = true
+        errorMessage = nil
+        
+        guard let url = URL(string: "https://raw.githubusercontent.com/Chu0019/-/main/password.txt") else {
+            errorMessage = "無效的網址配置"
+            isLoading = false
+            return
+        }
+        
+        URLSession.shared.dataTask(with: url) { data, response, error in
+            DispatchQueue.main.async {
+                isLoading = false
+                if let _ = error {
+                    errorMessage = "無法連線驗證密碼，請檢查網路連線狀態"
+                    return
+                }
+                
+                guard let data = data, let fetchedPassword = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) else {
+                    errorMessage = "無法讀取密碼資料"
+                    return
+                }
+                
+                if password == fetchedPassword {
+                    withAnimation {
+                        isAuthenticated = true
+                    }
+                } else {
+                    errorMessage = "密碼錯誤，請重新輸入"
+                }
+            }
+        }.resume()
+    }
+}
+
 struct ContentView: View {
     @StateObject private var viewModel = QuizViewModel()
     @State private var quizStarted = false
+    @State private var isAuthenticated = false
     
     var body: some View {
         ZStack {
@@ -78,7 +171,10 @@ struct ContentView: View {
                            endPoint: .bottomTrailing)
                 .ignoresSafeArea()
             
-            if !quizStarted {
+            if !isAuthenticated {
+                PasswordView(isAuthenticated: $isAuthenticated)
+                    .transition(.opacity)
+            } else if !quizStarted {
                 StartView {
                     viewModel.startQuiz()
                     withAnimation {
