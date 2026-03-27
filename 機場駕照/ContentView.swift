@@ -127,31 +127,27 @@ struct PasswordView: View {
         isLoading = true
         errorMessage = nil
         
-        guard let url = URL(string: "https://raw.githubusercontent.com/Chu0019/-/main/password.txt") else {
-            errorMessage = "無效的網址配置"
-            isLoading = false
-            return
-        }
+        let timestamp = Int(Date().timeIntervalSince1970)
+        let url = URL(string: "https://raw.githubusercontent.com/Chu0019/-/main/password.txt?t=\(timestamp)")!
         
         URLSession.shared.dataTask(with: url) { data, response, error in
             DispatchQueue.main.async {
                 isLoading = false
-                if let _ = error {
-                    errorMessage = "無法連線驗證密碼，請檢查網路連線狀態"
+                if let error = error {
+                    errorMessage = "網路錯誤: \(error.localizedDescription)"
                     return
                 }
                 
-                guard let data = data, let fetchedPassword = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) else {
-                    errorMessage = "無法讀取密碼資料"
-                    return
-                }
-                
-                if password == fetchedPassword {
-                    withAnimation {
-                        isAuthenticated = true
+                if let data = data, let remotePassword = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) {
+                    if password.trimmingCharacters(in: .whitespacesAndNewlines) == remotePassword {
+                        withAnimation {
+                            isAuthenticated = true
+                        }
+                    } else {
+                        errorMessage = "密碼不正確"
                     }
                 } else {
-                    errorMessage = "密碼錯誤，請重新輸入"
+                    errorMessage = "無法讀取驗證資訊"
                 }
             }
         }.resume()

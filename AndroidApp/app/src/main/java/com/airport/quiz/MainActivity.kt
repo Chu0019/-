@@ -163,9 +163,10 @@ fun PasswordView(onAuthenticated: () -> Unit) {
                         scope.launch {
                             try {
                                 val remotePassword = withContext(Dispatchers.IO) {
-                                    URL("https://raw.githubusercontent.com/Chu0019/-/main/password.txt").readText().trim()
+                                    val timestamp = System.currentTimeMillis()
+                                    URL("https://raw.githubusercontent.com/Chu0019/-/main/password.txt?t=$timestamp").readText().trim()
                                 }
-                                if (password == remotePassword) {
+                                if (password.trim() == remotePassword) {
                                     onAuthenticated()
                                 } else {
                                     errorMessage = "密碼錯誤，請重新輸入"
