@@ -59,7 +59,7 @@ fun AppContent(viewModel: QuizViewModel = viewModel()) {
         if (!auth) {
             PasswordView(onAuthenticated = { isAuthenticated = true })
         } else {
-            AnimatedContent(targetState = Triple(viewModel.isStarted, viewModel.showResults, viewModel.currentIndex)) { (started, showResults, index) ->
+            AnimatedContent(targetState = Triple(viewModel.isStarted, viewModel.showResults, viewModel.currentIndex)) { (started, showResults, _) ->
                 if (!started) {
                     StartView {
                         viewModel.startQuiz()
